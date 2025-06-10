@@ -1,0 +1,6 @@
+﻿<RunSettings>
+  <TestRunParameters>
+    <Parameter name="BaseUrl" value="https://2g3pwg85a2.execute-api.eu-west-2.amazonaws.com" />
+	 <Parameter name="EndPoint" value="/default/transactions" />
+  </TestRunParameters>
+</RunSettings>
