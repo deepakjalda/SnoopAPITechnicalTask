@@ -1,4 +1,5 @@
 ﻿using AventStack.ExtentReports.Gherkin.Model;
+using Newtonsoft.Json;
 using NUnit.Framework.Interfaces;
 using SnoopAPITechnicalTask;
 using SnoopAPITechnicalTask.Core.API;
@@ -7,6 +8,8 @@ using SnoopAPITechnicalTask.Services.Api;
 using SnoopAPITechnicalTask.TestData;
 using SnoopAPITechnicalTask.Utilities;
 using System.Diagnostics.Metrics;
+using System.Text.RegularExpressions;
+using System.Transactions;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace SnoopAPITechnicalTask.Tests;
@@ -57,7 +60,7 @@ public class NegativeTestcases
                 break;
         }
     }
-    
+
     #endregion
 
     #region Tests
@@ -73,7 +76,7 @@ public class NegativeTestcases
         var response = await m_apiClient.GetTransactionsAsync(queryparams);
 
         Assert.That(response.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.BadRequest), "Expected HTTP status code 400 Bad Request.");
-        Assert.That(response.Content.Replace("\"",""), Is.EqualTo("Invalid customerId guid format"));
+        Assert.That(response.Content.Replace("\"", ""), Is.EqualTo("Invalid customerId guid format"));
     }
 
     [Test]
@@ -183,6 +186,67 @@ public class NegativeTestcases
 
         Assert.That(response.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.BadRequest), "Expected HTTP status code 400 Bad Request.");
         Assert.That(response.Content.Replace("\"", ""), Is.EqualTo("toDate must be after fromDate (or on the same day)"));
+    }
+
+    [Test]
+    [Description("Verifies that Merchant key in transaction object should not null")]
+    [TestCaseSource(typeof(CustomerTestData), nameof(CustomerTestData.ValidCustomerIds))]
+    public async Task ReturnsMerchantShouldNotNull(string customerId)
+    {
+        var queryparams = new TransactionQueryParameters()
+        {
+            CustomerId = customerId
+        };
+        var response = await m_apiClient.GetTransactionsAsync(queryparams);
+
+        Assert.That(response.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.OK), "Expected HTTP status code 200 .");
+
+        foreach (var transaction in response.Data)
+        {
+            Assert.That(string.IsNullOrWhiteSpace(transaction.MerchantName), Is.False,
+                $"Transaction {transaction.TransactionId} has null or empty merchant.");
+        }
+    }
+
+    [Test]
+    [Description("Verifies that Description key in transaction object should not null")]
+    [TestCaseSource(typeof(CustomerTestData), nameof(CustomerTestData.ValidCustomerIds))]
+    public async Task ReturnsDescriptionShouldNotbeNullOrEmpty(string customerId)
+    {
+        var queryparams = new TransactionQueryParameters()
+        {
+            CustomerId = customerId
+        };
+        var response = await m_apiClient.GetTransactionsAsync(queryparams);
+
+        Assert.That(response.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.OK), "Expected HTTP status code 200 .");
+
+        foreach (var transaction in response.Data)
+        {
+            Assert.That(string.IsNullOrWhiteSpace(transaction.Description), Is.False,
+                $"Transaction {transaction.TransactionId} has null or empty Description.");
+        }
+    }
+
+    [Test]
+    [Description("Verifies that Amount is a decimal with exactly 2 decimal places")]
+    [TestCaseSource(typeof(CustomerTestData), nameof(CustomerTestData.ValidCustomerIds))]
+    public async Task ReturnsAumountDecimalVerification(string customerId)
+    {
+        var queryparams = new TransactionQueryParameters()
+        {
+            CustomerId = customerId
+        };
+        var response = await m_apiClient.GetTransactionsAsync(queryparams);
+
+        Assert.That(response.StatusCode, Is.EqualTo(System.Net.HttpStatusCode.OK), "Expected HTTP status code 200 .");
+
+        foreach (var transaction in response.Data)
+        {
+            var amountFormatted = transaction.Amount.ToString("F2");
+            Assert.That(Regex.IsMatch(amountFormatted, @"^-?\d+\.\d{2}$"), Is.True,
+                $"Transaction {transaction.TransactionId} has an incorrectly formatted amount {amountFormatted}");
+        }
     }
 
     #endregion
